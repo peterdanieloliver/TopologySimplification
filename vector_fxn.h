@@ -583,7 +583,7 @@ Quad* streamline_step2(icVector2* point, Quad* quad, PolyLine* streamline, Polyh
 	{
 		new_quad = quad;
 	}
-
+	
 	streamline->push_back(LineSegment(icVector3(x0, y0, z), icVector3(x, y, z)));
 
 	if (magnitude < TRAVEL_THRESHOLD)

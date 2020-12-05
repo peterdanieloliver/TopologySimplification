@@ -159,6 +159,7 @@
     <ClInclude Include="polyhedron.h" />
     <ClInclude Include="polyline.h" />
     <ClInclude Include="tmatrix.h" />
+    <ClInclude Include="topology2d.h" />
     <ClInclude Include="trackball.h" />
     <ClInclude Include="vector_fxn.h" />
   </ItemGroup>
