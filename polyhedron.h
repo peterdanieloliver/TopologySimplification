@@ -92,6 +92,8 @@ public:
 	icVector3 center;
 	double radius;
 	double area;
+	int dim_x;
+	int dim_y;
 
 	int selected_quad;
 	int selected_vertex;
@@ -116,6 +118,7 @@ public:
 	void calc_bounding_sphere();
 	void calc_face_normals_and_area();
 	void calc_edge_length();
+	void calc_dimensions();
 
 	/*utilties*/
 	Quad* find_common_edge(Quad*, Vertex*, Vertex*);

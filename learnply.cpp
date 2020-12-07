@@ -19,12 +19,14 @@
 
 #include "draw_fnx.h"
 #include "vector_fxn.h"
+#include "topology2d.h"
 
 /******************************************************************************
 Global variables
 ******************************************************************************/
 
 Polyhedron* poly;
+Topology2D* topo;
 
 /*scene related variables*/
 const float zoomspeed = 0.9;
@@ -45,24 +47,15 @@ display mode 3: IBFV display
 */
 int display_mode = 1;
 
-/*
-Streamline Variables
-*/
-std::vector<PolyLine*> user_streamlines;
-std::vector<PolyLine*> streamlines;
-std::vector<icVector3*>* source_sink_points = new std::vector<icVector3*>;
-std::vector<icVector3*>* saddle_points = new std::vector<icVector3*>;
-std::vector<PolyLine*>* separatrices = new std::vector<PolyLine*>;
-bool singularities_drawn = FALSE;
-bool streamlines_drawn = FALSE;
-
-
 /*User Interaction related variabes*/
 float s_old, t_old;
 float rotmat[4][4];
 double zoom = 1.0;
 double translation[2] = { 0, 0 };
 int mouse_mode = -2;	// -1 = no action, 1 = tranlate y, 2 = rotate
+
+bool lines_drawn = false;
+bool topo_drawn = false;
 
 /*IBFV related variables*/
 //https://www.win.tue.nl/~vanwijk/ibfv/
@@ -100,31 +93,13 @@ void display_selected_quad(Polyhedron* poly);
 /*display vis results*/
 void display_polyhedron(Polyhedron* poly);
 
-
-/******************************************************************************
-Function for making streamlines from mesh vertices
-******************************************************************************/
-
-void make_streamlines(Polyhedron* poly)
-{
-	for (int i = 0; i < (poly->nverts / 20); i++)
-	{
-		Vertex* vert = poly->vlist[20*i];
-		PolyLine* streamline = build_streamline2(vert->x, vert->y, poly);
-		if (streamline != nullptr)
-		{
-			streamlines.push_back(streamline);
-		}
-	}
-}
-
 /******************************************************************************
 Main program.
 ******************************************************************************/
 int main(int argc, char* argv[])
 {
 	/*load mesh from ply file*/
-	FILE* this_file = fopen("../turbulent_data/turb_field_01.ply", "r");
+	FILE* this_file = fopen("../turbulent_data/turb_field_08.ply", "r");
 
 	poly = new Polyhedron(this_file);
 	fclose(this_file);
@@ -133,11 +108,8 @@ int main(int argc, char* argv[])
 	poly->initialize(); // initialize the mesh
 	poly->write_info();
 
-	// construct a streamline from each vertex of the mesh
-	make_streamlines(poly);
-
-	// find singularities and separatrices
-	generate_topology(poly, source_sink_points, saddle_points, separatrices);
+	// create 2d topology instance
+	topo = new Topology2D(poly, 4);
 
 	/*init glut and create window*/
 	glutInit(&argc, argv);
@@ -892,75 +864,33 @@ void keyboard(unsigned char key, int x, int y) {
 			display_mode = 3;
 		}
 		break;
-		case 'p':	// pick a point to draw a streamline
+		case 't':	// toggle singularities and separatrices
 		{
-			// user input coordinates
-			double x_in, y_in;
-			char yes_no;
-			bool input = true;
-
-			while (input)
+			if (topo_drawn)
 			{
-				std::cout << "Pick a point for drawing a streamline" << std::endl;
-				std::cout << "Input x-coordinate:  ";
-				std::cin >> x_in;
-				std::cout << "Input y-coordinate:  ";
-				std::cin >> y_in;
-
-				PolyLine* streamline = build_streamline(x_in, y_in, poly);
-
-				if (streamline != nullptr)
-				{
-					user_streamlines.push_back(streamline);
-				}
-				else
-				{
-					std::cout << "Coordinates not in domain, please try again." << std::endl;
-				}
-
-				std::cout << "Pick another point? (y/n)  ";
-				std::cin >> yes_no;
-				if (yes_no == 'n')
-				{
-					input = false;
-				}
-			}
-			glutPostRedisplay();
-		}
-		break;
-		case 'P':	// (shift+P) clear all streamlines
-		{
-			user_streamlines.clear();
-			glutPostRedisplay();
-		}
-		break;
-		case 's':	// toggle singularities and separatrices
-		{
-			if (singularities_drawn)
-			{
-				singularities_drawn = FALSE;
+				topo_drawn = FALSE;
 			}
 			else
 			{
-				singularities_drawn = TRUE;
+				topo_drawn = TRUE;
 			}
 			glutPostRedisplay();
 		}
 		break;
-		case 'm':
+		case 's':	// toggle streamlines
 		{
-			if (streamlines_drawn)
+			if (lines_drawn)
 			{
-				streamlines_drawn = FALSE;
+				lines_drawn = FALSE;
 			}
 			else
 			{
-				streamlines_drawn = TRUE;
+				lines_drawn = TRUE;
 			}
 			glutPostRedisplay();
 		}
 		break;
-		case 'r':	// ???
+		case 'r':	// resets camera rotation
 		{
 			mat_ident(rotmat);
 			translation[0] = 0;
@@ -972,12 +902,9 @@ void keyboard(unsigned char key, int x, int y) {
 	}
 }
 
-
-
 /******************************************************************************
 Diaplay the polygon with visualization results
 ******************************************************************************/
-
 
 void display_polyhedron(Polyhedron* poly)
 {
@@ -1014,36 +941,34 @@ void display_polyhedron(Polyhedron* poly)
 			glEnd();
 		}
 
-		// draw user streamlines
-		for (PolyLine* streamline : user_streamlines)
-		{
-			drawPolyline(*streamline, 2.0, 1.0, 0.7, 0.4);
-		}
-
 		// draw topology
-		if (singularities_drawn)
+		if (topo_drawn)
 		{
-			for (PolyLine* sep : *separatrices)
+			for (PolyLine* sep : topo->separatrices)
 			{
 				if (sep != nullptr)
 				{
 					drawPolyline(*sep, 2.0, 0.85, 0.4, 1.0);
 				}
 			}
-			for (icVector3* sing : *source_sink_points)
+			for (icVector3* sing : topo->source_sink_points)
 			{
-				drawDot(sing->x, sing->y, sing->z, 0.05, 0.1, 0.1, 0.7);
+				drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.1, 0.7);
 			}
-			for (icVector3* sing : *saddle_points)
+			for (icVector3* sing : topo->saddle_points)
 			{
-				drawDot(sing->x, sing->y, sing->z, 0.05, 0.7, 0.1, 0.1);
+				drawDot(sing->x, sing->y, sing->z, 0.04, 0.7, 0.1, 0.1);
+			}
+			for (icVector3* sing : topo->higher_points)
+			{
+				drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.75, 0.0);
 			}
 		}
 
 		// draw streamlines
-		if (streamlines_drawn)
+		if (lines_drawn)
 		{
-			for (PolyLine* streamline : streamlines)
+			for (PolyLine* streamline : topo->streamlines)
 			{
 				drawPolyline(*streamline,1.0,0.9,0.6,1.0);
 			}
@@ -1067,29 +992,33 @@ void display_polyhedron(Polyhedron* poly)
 		}
 
 		// draw topology
-		if (singularities_drawn)
+		if (topo_drawn)
 		{
-			for (PolyLine* sep : *separatrices)
+			for (PolyLine* sep : topo->separatrices)
 			{
 				if (sep != nullptr)
 				{
 					drawPolyline(*sep, 2.0, 0.85, 0.4, 1.0);
 				}
 			}
-			for (icVector3* sing : *source_sink_points)
+			for (icVector3* sing : topo->source_sink_points)
 			{
-				drawDot(sing->x, sing->y, sing->z, 0.05, 0.1, 0.1, 0.7);
+				drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.1, 0.7);
 			}
-			for (icVector3* sing : *saddle_points)
+			for (icVector3* sing : topo->saddle_points)
 			{
-				drawDot(sing->x, sing->y, sing->z, 0.05, 0.7, 0.1, 0.1);
+				drawDot(sing->x, sing->y, sing->z, 0.04, 0.7, 0.1, 0.1);
+			}
+			for (icVector3* sing : topo->higher_points)
+			{
+				drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.75, 0.0);
 			}
 		}
 
 		// draw streamlines
-		if (streamlines_drawn)
+		if (lines_drawn)
 		{
-			for (PolyLine* streamline : streamlines)
+			for (PolyLine* streamline : topo->streamlines)
 			{
 				drawPolyline(*streamline, 1.0, 0.9, 0.6, 1.0);
 			}
@@ -1101,29 +1030,33 @@ void display_polyhedron(Polyhedron* poly)
 		displayIBFV();
 
 		// draw topology
-		if (singularities_drawn)
+		if (topo_drawn)
 		{
-			for (PolyLine* sep : *separatrices)
+			for (PolyLine* sep : topo->separatrices)
 			{
 				if (sep != nullptr)
 				{
 					drawPolyline(*sep, 2.0, 0.85, 0.4, 1.0);
 				}
 			}
-			for (icVector3* sing : *source_sink_points)
+			for (icVector3* sing : topo->source_sink_points)
 			{
-				drawDot(sing->x, sing->y, sing->z, 0.05, 0.1, 0.1, 0.7);
+				drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.1, 0.7);
 			}
-			for (icVector3* sing : *saddle_points)
+			for (icVector3* sing : topo->saddle_points)
 			{
-				drawDot(sing->x, sing->y, sing->z, 0.05, 0.7, 0.1, 0.1);
+				drawDot(sing->x, sing->y, sing->z, 0.04, 0.7, 0.1, 0.1);
+			}
+			for (icVector3* sing : topo->higher_points)
+			{
+				drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.75, 0.0);
 			}
 		}
 
 		// draw streamlines
-		if (streamlines_drawn)
+		if (lines_drawn)
 		{
-			for (PolyLine* streamline : streamlines)
+			for (PolyLine* streamline : topo->streamlines)
 			{
 				drawPolyline(*streamline, 1.0, 0.9, 0.6, 1.0);
 			}

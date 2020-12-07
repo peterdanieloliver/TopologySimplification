@@ -11,36 +11,41 @@ class Topology2D
 
 private: // private fields
 	
-	const double STEP_SIZE = 0.1;
-	const double SEP_OFFSET = STEP_SIZE * 1.1;
+	const double STEP_SIZE = 0.02;
+	const double SEP_OFFSET = STEP_SIZE * 1.01;
 	const double WINDING_NUM_TOLERANCE = 1.0;
 	const double S_T_TOLERANCE = 0.06;
+	int QUAD_LIMIT;
 
 	icVector3* current_pos = new icVector3(0, 0, 0);
 	Quad* current_quad = nullptr;
+	int* quad_counter;
+	std::vector<icVector3*> sep_seeds;
 
 	Polyhedron* poly;
 
 public: // public fields
 
 	std::vector<PolyLine*> streamlines;
-	std::vector<icVector3*> sep_seeds;
 	std::vector<PolyLine*> separatrices;
 	std::vector<icVector3*> source_sink_points;
 	std::vector<icVector3*> saddle_points;
+	std::vector<icVector3*> higher_points;
 
-private: // private helper functions
+	int streamline_spacing = 1;
+
+private: // private functions
 
 	// 3 value maximum helper function
 	template <class T> const T& max3(const T& a, const T& b, const T& c)
 	{
-		return std::max(std::max(a, b), c));
+		return std::max(std::max(a, b), c);
 	}
 
 	// 3 value minimum helper function
 	template <class T> const T& min3(const T& a, const T& b, const T& c)
 	{
-		return std::min(std::min(a, b), c));
+		return std::min(std::min(a, b), c);
 	}
 
 	// winding number helper function: returns the winding number
@@ -413,7 +418,7 @@ private: // private helper functions
 	}
 
 	// build streamline by iteratively calling step function starting from supplied point
-	void build_streamline(double x, double y)
+	void build_streamline(double x, double y, bool separatrix = false)
 	{
 		PolyLine* streamline = new PolyLine();
 		current_pos->x = x;
@@ -426,31 +431,53 @@ private: // private helper functions
 		if (current_quad == nullptr || singularty_proximity() < STEP_SIZE) { return; }
 
 		// trace forward streamline
+		std::fill_n(quad_counter, poly->nquads, 0);
 		while (!forward_terminated)
 		{
 			LineSegment* segment = streamline_step(true);
-			if (segment == nullptr || current_quad == nullptr || singularty_proximity() < STEP_SIZE)
+			if (segment == nullptr || 
+				current_quad == nullptr || 
+				singularty_proximity() < STEP_SIZE ||
+				quad_counter[current_quad->index] > QUAD_LIMIT)
 			{
 				forward_terminated = true;
 			}
 			else
 			{
+				quad_counter[current_quad->index]++;
 				streamline->push_back(*segment);
 			}
 		}
 
 		// trace backward streamline
+		current_pos->x = x;
+		current_pos->y = y;
+		current_quad = find_quad(x, y);
+		std::fill_n(quad_counter, poly->nquads, 0);
 		while (!backward_terminated)
 		{
 			LineSegment* segment = streamline_step(false);
-			if (segment == nullptr || current_quad == nullptr || singularty_proximity() < STEP_SIZE)
+			if (segment == nullptr || 
+				current_quad == nullptr || 
+				singularty_proximity() < STEP_SIZE || 
+				quad_counter[current_quad->index] > QUAD_LIMIT)
 			{
 				backward_terminated = true;
 			}
 			else
 			{
+				quad_counter[current_quad->index]++;
 				streamline->push_back(*segment);
 			}
+		}
+
+		if (separatrix)
+		{
+			separatrices.push_back(streamline);
+		}
+		else
+		{
+			streamlines.push_back(streamline);
 		}
 	}
 
@@ -511,13 +538,13 @@ private: // private helper functions
 			+ winding_num(vx22, vy22, vx12, vy12)
 			+ winding_num(vx12, vy12, vx11, vy11);
 
-		if ((winding_number > ((2 * PI) - WINDING_NUM_TOLERANCE)) && 
+		if ((winding_number > ((2 * PI) - WINDING_NUM_TOLERANCE)) &&
 			(winding_number < ((2 * PI) + WINDING_NUM_TOLERANCE)))
 		{
 			// it is a source, sink, center or focus
 			source_sink = true;
 		}
-		else if ((winding_number > ((-2 * PI) - WINDING_NUM_TOLERANCE)) && 
+		else if ((winding_number > ((-2 * PI) - WINDING_NUM_TOLERANCE)) &&
 			(winding_number < ((-2 * PI) + WINDING_NUM_TOLERANCE)))
 		{
 			// it is a saddle
@@ -618,10 +645,12 @@ private: // private helper functions
 				sep_seeds.push_back(sep_in_1);
 				sep_seeds.push_back(sep_in_2);
 				saddle_points.push_back(singularity);
+				return;
 			}
 			else if (source_sink)
 			{
 				source_sink_points.push_back(singularity);
+				return;
 			}
 			else
 			{
@@ -630,5 +659,40 @@ private: // private helper functions
 		}
 	}
 
-};
+public:
 
+	// constructor: creates topology and streamlines with the specified seed spacing
+	Topology2D(Polyhedron* poly_in, int streamline_spacing = 1)
+	{
+		poly = poly_in;
+		streamline_spacing = streamline_spacing;
+		QUAD_LIMIT = 10 * (poly->elist[0]->length) / STEP_SIZE;
+		quad_counter = new int[poly->nquads];
+
+		// find all singularities
+		Quad* quad;
+		for (int i = 0; i < poly->nquads; i++)
+		{
+			quad = poly->qlist[i];
+			find_singularity(quad);
+		}
+
+		// draw separatrices
+		for (icVector3* seed : sep_seeds)
+		{
+			build_streamline(seed->x, seed->y, true);
+		}
+
+		// draw streamlines from seeds with specified spacing
+		Vertex* vert;
+		for (int i = 0; i < poly->dim_y; i += streamline_spacing)
+		{
+			for (int j = 0; j < poly->dim_x; j += streamline_spacing)
+			{
+				vert = poly->vlist[(i * (poly->dim_x - 1)) + j];
+				build_streamline(vert->x, vert->y);
+			}
+		}
+	}
+
+};

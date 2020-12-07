@@ -251,6 +251,7 @@ void Polyhedron::initialize()
 	calc_bounding_sphere();
 	calc_face_normals_and_area();
 	average_normals();
+	calc_dimensions();
 }
 
 void Polyhedron::finalize() {
@@ -865,6 +866,20 @@ void Polyhedron::average_normals()
 		for (j = 0; j < vlist[i]->nquads; j++)
 			vlist[i]->normal += vlist[i]->quads[j]->normal;
 		normalize(vlist[i]->normal);
+	}
+}
+
+void Polyhedron::calc_dimensions()
+{
+	dim_x = 0;
+	dim_y = 0;
+	Vertex* vfirst = vlist[0];
+	Vertex* vtemp;
+	for (int i = 1; i < nverts; i++)
+	{
+		vtemp = vlist[i];
+		if (vfirst->x == vtemp->x) { dim_x++; }
+		if (vfirst->y == vtemp->y) { dim_y++; }
 	}
 }
 
