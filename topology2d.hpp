@@ -34,7 +34,7 @@ public: // public fields
 
 	int streamline_spacing = 1;
 
-private: // private functions
+private: // private methods
 
 	// 3 value maximum helper function
 	template <class T> const T& max3(const T& a, const T& b, const T& c)
@@ -659,7 +659,7 @@ private: // private functions
 		}
 	}
 
-public:
+public: // public methods
 
 	// constructor: creates topology and streamlines with the specified seed spacing
 	Topology2D(Polyhedron* poly_in, int streamline_spacing = 1)
@@ -693,6 +693,21 @@ public:
 				build_streamline(vert->x, vert->y);
 			}
 		}
+	}
+
+	// returns a vector of all singularities
+	std::vector<icVector3*> singularities()
+	{
+		std::vector<icVector3*> singularities;
+		for (icVector3* sing : source_sink_points)
+		{
+			singularities.push_back(sing);
+		}
+		for (icVector3* sing : saddle_points)
+		{
+			singularities.push_back(sing);
+		}
+		return singularities;
 	}
 
 };

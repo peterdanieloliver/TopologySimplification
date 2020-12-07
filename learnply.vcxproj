@@ -150,6 +150,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="cluster.hpp" />
     <ClInclude Include="glError.h" />
     <ClInclude Include="draw_fnx.h" />
     <ClInclude Include="icMatrix.H" />
@@ -159,7 +160,7 @@
     <ClInclude Include="polyhedron.h" />
     <ClInclude Include="polyline.h" />
     <ClInclude Include="tmatrix.h" />
-    <ClInclude Include="topology2d.h" />
+    <ClInclude Include="topology2d.hpp" />
     <ClInclude Include="trackball.h" />
     <ClInclude Include="vector_fxn.h" />
   </ItemGroup>

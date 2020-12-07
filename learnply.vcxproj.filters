@@ -65,7 +65,10 @@
     <ClInclude Include="vector_fxn.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="topology2d.h">
+    <ClInclude Include="topology2d.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="cluster.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

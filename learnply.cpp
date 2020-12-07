@@ -19,7 +19,7 @@
 
 #include "draw_fnx.h"
 #include "vector_fxn.h"
-#include "topology2d.h"
+#include "topology2d.hpp"
 
 /******************************************************************************
 Global variables
