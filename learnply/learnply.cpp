@@ -20,6 +20,8 @@
 #include "draw_fnx.h"
 #include "vector_fxn.h"
 #include "topology2d.hpp"
+#include "cluster.hpp"
+#include <time.h>
 
 /******************************************************************************
 Global variables
@@ -27,6 +29,7 @@ Global variables
 
 Polyhedron* poly;
 Topology2D* topo;
+SingClusterHandeler* singClusterHandler;
 
 /*scene related variables*/
 const float zoomspeed = 0.9;
@@ -56,6 +59,7 @@ int mouse_mode = -2;	// -1 = no action, 1 = tranlate y, 2 = rotate
 
 bool lines_drawn = false;
 bool topo_drawn = false;
+bool clusters_drawn = false;
 
 /*IBFV related variables*/
 //https://www.win.tue.nl/~vanwijk/ibfv/
@@ -108,8 +112,17 @@ int main(int argc, char* argv[])
 	poly->initialize(); // initialize the mesh
 	poly->write_info();
 
+	// seed random gen
+	srand(time(NULL));
+
 	// create 2d topology instance
 	topo = new Topology2D(poly, 4);
+
+	// get vector of singularities
+	std::vector<icVector3*> singularities = topo->singularities();
+
+	// create the singularity cluster handler
+	singClusterHandler = new SingClusterHandeler(poly, singularities, 1);
 
 	/*init glut and create window*/
 	glutInit(&argc, argv);
@@ -898,6 +911,11 @@ void keyboard(unsigned char key, int x, int y) {
 			zoom = 1.0;
 			glutPostRedisplay();
 		}
+		case 'c':	// toggle clusters
+		{
+			clusters_drawn = !clusters_drawn;
+			glutPostRedisplay();
+		}
 		break;
 	}
 }
@@ -974,6 +992,22 @@ void display_polyhedron(Polyhedron* poly)
 			}
 		}
 
+		// draw clusters
+		if (clusters_drawn) {
+			std::vector<Cluster*> clusters = singClusterHandler->getClusters();
+			double offset = 0;
+			for (Cluster* c : clusters) {
+				double r = (0.0 + offset) / 255;
+				double g = (10.0 + offset) / 255;
+				double b = (5.0 + offset) / 255;
+				std::vector<icVector3*> clusterSings = c->getSingularities();
+				for (icVector3* s : clusterSings) {
+					drawDot(s->x, s->y, s->z, 0.05, r, g, b);
+				}
+				offset += 32.0;
+			}
+		}
+
 		CHECK_GL_ERROR();
 	}
 	break;
@@ -1023,6 +1057,22 @@ void display_polyhedron(Polyhedron* poly)
 				drawPolyline(*streamline, 1.0, 0.9, 0.6, 1.0);
 			}
 		}
+
+		// draw clusters
+		if (clusters_drawn) {
+			std::vector<Cluster*> clusters = singClusterHandler->getClusters();
+			double offset = 0;
+			for (Cluster* c : clusters) {
+				double r = (0.0 + offset) / 255;
+				double g = (10.0 + offset) / 255;
+				double b = (5.0 + offset) / 255;
+				std::vector<icVector3*> clusterSings = c->getSingularities();
+				for (icVector3* s : clusterSings) {
+					drawDot(s->x, s->y, s->z, 0.05, r, g, b);
+				}
+				offset += 32.0;
+			}
+		}
 	}
 	break;
 	case 3:		// IBFV
@@ -1059,6 +1109,22 @@ void display_polyhedron(Polyhedron* poly)
 			for (PolyLine* streamline : topo->streamlines)
 			{
 				drawPolyline(*streamline, 1.0, 0.9, 0.6, 1.0);
+			}
+		}
+
+		// draw clusters
+		if (clusters_drawn) {
+			std::vector<Cluster*> clusters = singClusterHandler->getClusters();
+			double offset = 0;
+			for (Cluster* c : clusters) {
+				double r = (0.0 + offset) / 255;
+				double g = (10.0 + offset) / 255;
+				double b = (5.0 + offset) / 255;
+				std::vector<icVector3*> clusterSings = c->getSingularities();
+				for (icVector3* s : clusterSings) {
+					drawDot(s->x, s->y, s->z, 0.05, r, g, b);
+				}
+				offset += 32.0;
 			}
 		}
 	}
