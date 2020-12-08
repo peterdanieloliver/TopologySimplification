@@ -71,5 +71,8 @@
     <ClInclude Include="cluster.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="color.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

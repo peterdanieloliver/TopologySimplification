@@ -153,6 +153,7 @@
     <ClInclude Include="cluster.hpp" />
     <ClInclude Include="glError.h" />
     <ClInclude Include="draw_fnx.h" />
+    <ClInclude Include="color.hpp" />
     <ClInclude Include="icMatrix.H" />
     <ClInclude Include="icVector.H" />
     <ClInclude Include="ply_io.h" />

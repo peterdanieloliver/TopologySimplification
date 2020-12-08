@@ -22,6 +22,7 @@
 #include "topology2d.hpp"
 #include "cluster.hpp"
 #include <time.h>
+#include "color.hpp"
 
 /******************************************************************************
 Global variables
@@ -995,16 +996,13 @@ void display_polyhedron(Polyhedron* poly)
 		// draw clusters
 		if (clusters_drawn) {
 			std::vector<Cluster*> clusters = singClusterHandler->getClusters();
-			double offset = 0;
+			int i = 0;
 			for (Cluster* c : clusters) {
-				double r = (0.0 + offset) / 255;
-				double g = (10.0 + offset) / 255;
-				double b = (5.0 + offset) / 255;
 				std::vector<icVector3*> clusterSings = c->getSingularities();
 				for (icVector3* s : clusterSings) {
-					drawDot(s->x, s->y, s->z, 0.05, r, g, b);
+					drawDot(s->x, s->y, s->z, 0.03, getColor(i, 0), getColor(i, 1), getColor(i, 2));
 				}
-				offset += 32.0;
+				i++;
 			}
 		}
 
@@ -1061,16 +1059,13 @@ void display_polyhedron(Polyhedron* poly)
 		// draw clusters
 		if (clusters_drawn) {
 			std::vector<Cluster*> clusters = singClusterHandler->getClusters();
-			double offset = 0;
+			int i = 0;
 			for (Cluster* c : clusters) {
-				double r = (0.0 + offset) / 255;
-				double g = (10.0 + offset) / 255;
-				double b = (5.0 + offset) / 255;
 				std::vector<icVector3*> clusterSings = c->getSingularities();
 				for (icVector3* s : clusterSings) {
-					drawDot(s->x, s->y, s->z, 0.05, r, g, b);
+					drawDot(s->x, s->y, s->z, 0.05, getColor(i, 0), getColor(i, 1), getColor(i, 2));
 				}
-				offset += 32.0;
+				i++;
 			}
 		}
 	}
@@ -1115,16 +1110,13 @@ void display_polyhedron(Polyhedron* poly)
 		// draw clusters
 		if (clusters_drawn) {
 			std::vector<Cluster*> clusters = singClusterHandler->getClusters();
-			double offset = 0;
+			int i = 0;
 			for (Cluster* c : clusters) {
-				double r = (0.0 + offset) / 255;
-				double g = (10.0 + offset) / 255;
-				double b = (5.0 + offset) / 255;
 				std::vector<icVector3*> clusterSings = c->getSingularities();
 				for (icVector3* s : clusterSings) {
-					drawDot(s->x, s->y, s->z, 0.05, r, g, b);
+					drawDot(s->x, s->y, s->z, 0.05, getColor(i, 0), getColor(i, 1), getColor(i, 2));
 				}
-				offset += 32.0;
+				i++;
 			}
 		}
 	}
