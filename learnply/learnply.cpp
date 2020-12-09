@@ -18,7 +18,6 @@
 #include "tmatrix.h"
 
 #include "draw_fnx.h"
-#include "vector_fxn.h"
 #include "topology2d.hpp"
 #include "cluster.hpp"
 #include <time.h>
@@ -123,7 +122,7 @@ int main(int argc, char* argv[])
 	std::vector<icVector3*> singularities = topo->singularities();
 
 	// create the singularity cluster handler
-	singClusterHandler = new SingClusterHandeler(poly, singularities, 1);
+	singClusterHandler = new SingClusterHandeler(poly, singularities, .25);
 
 	/*init glut and create window*/
 	glutInit(&argc, argv);
@@ -1003,6 +1002,12 @@ void display_polyhedron(Polyhedron* poly)
 					drawDot(s->x, s->y, s->z, 0.03, getColor(i, 0), getColor(i, 1), getColor(i, 2));
 				}
 				i++;
+				for (Edge* e : c->getPerim())
+				{
+					LineSegment seg = LineSegment(e->verts[0]->x, e->verts[0]->y, e->verts[0]->z,
+						e->verts[1]->x, e->verts[1]->y, e->verts[1]->z);
+					drawLineSegment(seg, 1.0, 0.0, 0.0, 0.0);
+				}
 			}
 		}
 

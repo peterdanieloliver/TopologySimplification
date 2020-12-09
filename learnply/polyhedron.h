@@ -70,6 +70,7 @@ public:
 	void *other_props;
 
 	bool contains_critical = false;
+	bool in_cluster = false;
 };
 
 class Polyhedron {
