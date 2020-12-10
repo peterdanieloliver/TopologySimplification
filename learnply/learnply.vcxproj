@@ -156,7 +156,6 @@
     <ClInclude Include="color.hpp" />
     <ClInclude Include="icMatrix.H" />
     <ClInclude Include="icVector.H" />
-    <ClInclude Include="toposimp2d.hpp" />
     <ClInclude Include="ply_io.h" />
     <ClInclude Include="ply.h" />
     <ClInclude Include="polyhedron.h" />

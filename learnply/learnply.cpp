@@ -60,6 +60,7 @@ int mouse_mode = -2;	// -1 = no action, 1 = tranlate y, 2 = rotate
 bool lines_drawn = false;
 bool topo_drawn = false;
 bool clusters_drawn = false;
+bool simple_topo = false;
 
 /*IBFV related variables*/
 //https://www.win.tue.nl/~vanwijk/ibfv/
@@ -121,8 +122,9 @@ int main(int argc, char* argv[])
 	// get vector of singularities
 	std::vector<icVector3*> singularities = topo->singularities();
 
-	// create the singularity cluster handler
-	singClusterHandler = new SingClusterHandeler(poly, singularities, .25);
+	topo->simplifyTopology(1.0);
+
+	singClusterHandler = topo->cluster_handeler;
 
 	/*init glut and create window*/
 	glutInit(&argc, argv);
@@ -879,27 +881,13 @@ void keyboard(unsigned char key, int x, int y) {
 		break;
 		case 't':	// toggle singularities and separatrices
 		{
-			if (topo_drawn)
-			{
-				topo_drawn = FALSE;
-			}
-			else
-			{
-				topo_drawn = TRUE;
-			}
+			topo_drawn = !topo_drawn;
 			glutPostRedisplay();
 		}
 		break;
-		case 's':	// toggle streamlines
+		case 'l':	// toggle streamlines
 		{
-			if (lines_drawn)
-			{
-				lines_drawn = FALSE;
-			}
-			else
-			{
-				lines_drawn = TRUE;
-			}
+			lines_drawn = !lines_drawn;
 			glutPostRedisplay();
 		}
 		break;
@@ -917,6 +905,11 @@ void keyboard(unsigned char key, int x, int y) {
 			glutPostRedisplay();
 		}
 		break;
+		case 's':
+		{
+			simple_topo = !simple_topo;
+			glutPostRedisplay();
+		}
 	}
 }
 
@@ -962,33 +955,56 @@ void display_polyhedron(Polyhedron* poly)
 		// draw topology
 		if (topo_drawn)
 		{
-			for (PolyLine* sep : topo->separatrices)
+			if (simple_topo)
 			{
-				if (sep != nullptr)
+				for (PolyLine* sep : topo->simple_separatrices)
 				{
-					drawPolyline(*sep, 2.0, 0.85, 0.4, 1.0);
+					if (sep != nullptr)
+					{
+						drawPolyline(*sep, 2.0, 0.85, 0.4, 1.0);
+					}
+				}
+				for (icVector3* sing : topo->simple_singularities)
+				{
+					drawDot(sing->x, sing->y, sing->z, 0.04, 0.64, 0.0, 0.75);
 				}
 			}
-			for (icVector3* sing : topo->source_sink_points)
+			else
 			{
-				drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.1, 0.7);
-			}
-			for (icVector3* sing : topo->saddle_points)
-			{
-				drawDot(sing->x, sing->y, sing->z, 0.04, 0.7, 0.1, 0.1);
-			}
-			for (icVector3* sing : topo->higher_points)
-			{
-				drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.75, 0.0);
+				for (PolyLine* sep : topo->separatrices)
+				{
+					if (sep != nullptr)
+					{
+						drawPolyline(*sep, 2.0, 0.85, 0.4, 1.0);
+					}
+				}
+				for (icVector3* sing : topo->source_sink_points)
+				{
+					drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.1, 0.7);
+				}
+				for (icVector3* sing : topo->saddle_points)
+				{
+					drawDot(sing->x, sing->y, sing->z, 0.04, 0.7, 0.1, 0.1);
+				}
 			}
 		}
 
 		// draw streamlines
 		if (lines_drawn)
 		{
-			for (PolyLine* streamline : topo->streamlines)
+			if (simple_topo)
 			{
-				drawPolyline(*streamline,1.0,0.9,0.6,1.0);
+				for (PolyLine* streamline : topo->simple_streamlines)
+				{
+					drawPolyline(*streamline, 1.0, 0.9, 0.6, 1.0);
+				}
+			}
+			else
+			{
+				for (PolyLine* streamline : topo->streamlines)
+				{
+					drawPolyline(*streamline,1.0,0.9,0.6,1.0);
+				}
 			}
 		}
 
@@ -1046,10 +1062,6 @@ void display_polyhedron(Polyhedron* poly)
 			{
 				drawDot(sing->x, sing->y, sing->z, 0.04, 0.7, 0.1, 0.1);
 			}
-			for (icVector3* sing : topo->higher_points)
-			{
-				drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.75, 0.0);
-			}
 		}
 
 		// draw streamlines
@@ -1096,10 +1108,6 @@ void display_polyhedron(Polyhedron* poly)
 			for (icVector3* sing : topo->saddle_points)
 			{
 				drawDot(sing->x, sing->y, sing->z, 0.04, 0.7, 0.1, 0.1);
-			}
-			for (icVector3* sing : topo->higher_points)
-			{
-				drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.75, 0.0);
 			}
 		}
 

@@ -74,8 +74,5 @@
     <ClInclude Include="vector_fxn.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="toposimp2d.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

@@ -2,6 +2,7 @@
 #include "polyhedron.h"
 #include "polyline.h"
 #include "icVector.H"
+#include "cluster.hpp"
 #include <cmath>
 #include <vector>
 #include <math.h>
@@ -11,7 +12,7 @@ class Topology2D
 
 private: // private fields
 	
-	const double STEP_SIZE = 0.02;
+	const double STEP_SIZE = 0.01;
 	const double SEP_OFFSET = STEP_SIZE * 1.01;
 	const double WINDING_NUM_TOLERANCE = 1.0;
 	const double S_T_TOLERANCE = 0.06;
@@ -30,7 +31,11 @@ public: // public fields
 	std::vector<PolyLine*> separatrices;
 	std::vector<icVector3*> source_sink_points;
 	std::vector<icVector3*> saddle_points;
-	std::vector<icVector3*> higher_points;
+	
+	SingClusterHandeler* cluster_handeler;
+	std::vector<icVector3*> simple_singularities;
+	std::vector<PolyLine*> simple_separatrices;
+	std::vector<PolyLine*> simple_streamlines;
 
 	int streamline_spacing = 1;
 
@@ -144,22 +149,35 @@ private: // private methods
 	}
 
 	// helper function to find distance between current point and nearest singularity
-	double singularty_proximity()
+	double singularty_proximity(bool topo_simple = false)
 	{
 		double prox = 2.0 * poly->radius;
 		double dist;
-		for (icVector3* singularity : source_sink_points)
+		if (topo_simple)
 		{
-			dist = sqrt(pow(singularity->x - current_pos->x, 2)
-				 + pow(singularity->y - current_pos->y, 2));
-			if (dist < prox) { prox = dist; }
+			for (icVector3* singularity : simple_singularities)
+			{
+				dist = sqrt(pow(singularity->x - current_pos->x, 2)
+					+ pow(singularity->y - current_pos->y, 2));
+				if (dist < prox) { prox = dist; }
+			}
 		}
-		for (icVector3* singularity : saddle_points)
+		else
 		{
-			dist = sqrt(pow(singularity->x - current_pos->x, 2)
-				+ pow(singularity->y - current_pos->y, 2));
-			if (dist < prox) { prox = dist; }
+			for (icVector3* singularity : source_sink_points)
+			{
+				dist = sqrt(pow(singularity->x - current_pos->x, 2)
+					 + pow(singularity->y - current_pos->y, 2));
+				if (dist < prox) { prox = dist; }
+			}
+			for (icVector3* singularity : saddle_points)
+			{
+				dist = sqrt(pow(singularity->x - current_pos->x, 2)
+					+ pow(singularity->y - current_pos->y, 2));
+				if (dist < prox) { prox = dist; }
+			}
 		}
+		
 		return prox;
 	}
 
@@ -189,41 +207,52 @@ private: // private methods
 		y2 = max3(current_quad->verts[0]->y, current_quad->verts[1]->y, current_quad->verts[2]->y);
 		z = current_quad->verts[0]->z;
 
-		// extracting vector values
-		for (Vertex* vert : current_quad->verts)
+		// determine if current point is in a cluster and get vector val appropriately
+		if (current_quad->in_cluster)
 		{
-			if ((vert->x == x1) && (vert->y == y1))
-			{
-				vx11 = vert->vx;
-				vy11 = vert->vy;
-			}
-			else if (vert->x == x1)
-			{
-				vx12 = vert->vx;
-				vy12 = vert->vy;
-			}
-			else if (vert->y == y1)
-			{
-				vx21 = vert->vx;
-				vy21 = vert->vy;
-			}
-			else
-			{
-				vx22 = vert->vx;
-				vy22 = vert->vy;
-			}
+			Cluster* cluster = cluster_handeler->getPointCluster(x0, y0);
+			icVector3 vector_val = cluster->getVectorVal(x0,y0);
+			vx = vector_val.x;
+			vy = vector_val.y;
 		}
+		else
+		{
+			// extracting vector values
+			for (Vertex* vert : current_quad->verts)
+			{
+				if ((vert->x == x1) && (vert->y == y1))
+				{
+					vx11 = vert->vx;
+					vy11 = vert->vy;
+				}
+				else if (vert->x == x1)
+				{
+					vx12 = vert->vx;
+					vy12 = vert->vy;
+				}
+				else if (vert->y == y1)
+				{
+					vx21 = vert->vx;
+					vy21 = vert->vy;
+				}
+				else
+				{
+					vx22 = vert->vx;
+					vy22 = vert->vy;
+				}
+			}
 
-		// interpolate
-		vx = ((x2 - x0) * (y2 - y0) * vx11) / ((x2 - x1) * (y2 - y1))
-			+ ((x0 - x1) * (y2 - y0) * vx21) / ((x2 - x1) * (y2 - y1))
-			+ ((x2 - x0) * (y0 - y1) * vx12) / ((x2 - x1) * (y2 - y1))
-			+ ((x0 - x1) * (y0 - y1) * vx22) / ((x2 - x1) * (y2 - y1));
-		vy = ((x2 - x0) * (y2 - y0) * vy11) / ((x2 - x1) * (y2 - y1))
-			+ ((x0 - x1) * (y2 - y0) * vy21) / ((x2 - x1) * (y2 - y1))
-			+ ((x2 - x0) * (y0 - y1) * vy12) / ((x2 - x1) * (y2 - y1))
-			+ ((x0 - x1) * (y0 - y1) * vy22) / ((x2 - x1) * (y2 - y1));
-
+			// interpolate
+			vx = ((x2 - x0) * (y2 - y0) * vx11) / ((x2 - x1) * (y2 - y1))
+				+ ((x0 - x1) * (y2 - y0) * vx21) / ((x2 - x1) * (y2 - y1))
+				+ ((x2 - x0) * (y0 - y1) * vx12) / ((x2 - x1) * (y2 - y1))
+				+ ((x0 - x1) * (y0 - y1) * vx22) / ((x2 - x1) * (y2 - y1));
+			vy = ((x2 - x0) * (y2 - y0) * vy11) / ((x2 - x1) * (y2 - y1))
+				+ ((x0 - x1) * (y2 - y0) * vy21) / ((x2 - x1) * (y2 - y1))
+				+ ((x2 - x0) * (y0 - y1) * vy12) / ((x2 - x1) * (y2 - y1))
+				+ ((x0 - x1) * (y0 - y1) * vy22) / ((x2 - x1) * (y2 - y1));
+		}
+		
 		// check direction
 		if (!forward)
 		{
@@ -418,7 +447,7 @@ private: // private methods
 	}
 
 	// build streamline by iteratively calling step function starting from supplied point
-	void build_streamline(double x, double y, bool separatrix = false)
+	void build_streamline(double x, double y, bool separatrix = false, bool topo_simple = false)
 	{
 		PolyLine* streamline = new PolyLine();
 		current_pos->x = x;
@@ -428,7 +457,7 @@ private: // private methods
 		bool backward_terminated = false;
 
 		// check if input is acceptable
-		if (current_quad == nullptr || singularty_proximity() < STEP_SIZE) { return; }
+		if (current_quad == nullptr || singularty_proximity(topo_simple) < STEP_SIZE) { return; }
 
 		// trace forward streamline
 		std::fill_n(quad_counter, poly->nquads, 0);
@@ -437,7 +466,7 @@ private: // private methods
 			LineSegment* segment = streamline_step(true);
 			if (segment == nullptr || 
 				current_quad == nullptr || 
-				singularty_proximity() < STEP_SIZE ||
+				singularty_proximity(topo_simple) < STEP_SIZE ||
 				quad_counter[current_quad->index] > QUAD_LIMIT)
 			{
 				forward_terminated = true;
@@ -459,7 +488,7 @@ private: // private methods
 			LineSegment* segment = streamline_step(false);
 			if (segment == nullptr || 
 				current_quad == nullptr || 
-				singularty_proximity() < STEP_SIZE || 
+				singularty_proximity(topo_simple) < STEP_SIZE || 
 				quad_counter[current_quad->index] > QUAD_LIMIT)
 			{
 				backward_terminated = true;
@@ -473,11 +502,25 @@ private: // private methods
 
 		if (separatrix)
 		{
-			separatrices.push_back(streamline);
+			if (topo_simple)
+			{
+				simple_separatrices.push_back(streamline);
+			}
+			else
+			{
+				separatrices.push_back(streamline);
+			}
 		}
 		else
 		{
-			streamlines.push_back(streamline);
+			if (topo_simple)
+			{
+				simple_streamlines.push_back(streamline);
+			}
+			else
+			{
+				streamlines.push_back(streamline);
+			}
 		}
 	}
 
@@ -662,10 +705,10 @@ private: // private methods
 public: // public methods
 
 	// constructor: creates topology and streamlines with the specified seed spacing
-	Topology2D(Polyhedron* poly_in, int streamline_spacing = 1)
+	Topology2D(Polyhedron* poly_in, int stream_spacing = 1)
 	{
 		poly = poly_in;
-		streamline_spacing = streamline_spacing;
+		streamline_spacing = stream_spacing;
 		QUAD_LIMIT = 10 * (poly->elist[0]->length) / STEP_SIZE;
 		quad_counter = new int[poly->nquads];
 
@@ -708,6 +751,32 @@ public: // public methods
 			singularities.push_back(sing);
 		}
 		return singularities;
+	}
+
+	void simplifyTopology(double threshold)
+	{
+		cluster_handeler = new SingClusterHandeler(poly, singularities(), threshold);
+		simple_singularities = cluster_handeler->getMergedSingularities();
+
+		// draw separatrices from cluster seeds
+		for (Cluster* cluster : cluster_handeler->getClusters())
+		{
+			for (icVector3* seed : cluster->getSeparatrixSeeds())
+			{
+				build_streamline(seed->x, seed->y, true, true);
+			}
+		}
+
+		// draw streamlines from mesh vertex seeds with specified spacing
+		Vertex* vert;
+		for (int i = 0; i < poly->dim_y; i += streamline_spacing)
+		{
+			for (int j = 0; j < poly->dim_x; j += streamline_spacing)
+			{
+				vert = poly->vlist[(i * (poly->dim_x - 1)) + j];
+				build_streamline(vert->x, vert->y, false, true);
+			}
+		}
 	}
 
 };

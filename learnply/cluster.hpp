@@ -10,12 +10,16 @@ class Cluster
 {
 private:
 
+	const double TOLERANCE = 0.00000001;		// tolerance for inequalities
+
 	std::vector<icVector3*> singularities;		// set of singularities in the cluster
 	std::vector<Quad*> cell_quads;				// set of quads containing the singularity cluster
 	std::unordered_set<Vertex*> perim_verts;	// set of vertices on the perimeter of the cluster cell
 	std::unordered_set<Edge*> perim_edges;		// set of edges on the perimeter of the cluster cell
+	std::vector<icVector3*> separatrix_seeds;	// seed points for separatrices of merged cluster
 	double min_x, min_y, max_x, max_y;			// boundary coordinate values of the cluster cell
-	double sing_max_x, sing_max_y, sing_min_x, sing_min_y; // singularity max values
+	double sing_max_x, sing_max_y;				// singularity max values
+	double sing_min_x, sing_min_y;				// singularity min values
 	icVector3* mean_point;						// new singularity at singularity cluster mean
 
 	// private helper functions
@@ -64,7 +68,7 @@ private:
 		cell_quads.clear();
 		cell_quads = temp_quads;
 	}
-	
+
 	void perimeter()
 	{
 		Vertex* v_temp;
@@ -98,7 +102,72 @@ private:
 
 	void separatrices()
 	{
-		// todo: find separatrices using polar linear interpolation
+		double ax, ay, bx, by, avx, avy, bvx, bvy, sx, sy, z;
+		double square_term, linear_term, constant_term, t, discriminant;
+		double seedx, seedy, seedvx, seedvy;
+
+		// extract vertex values
+		for (Edge* edge : perim_edges)
+		{
+			// extract vector values
+			ax = edge->verts[0]->x;
+			ay = edge->verts[0]->y;
+			avx = edge->verts[0]->vx;
+			avy = edge->verts[0]->vy;
+			bx = edge->verts[1]->x;
+			by = edge->verts[1]->y;
+			bvx = edge->verts[1]->vx;
+			bvy = edge->verts[1]->vy;
+			z = edge->verts[0]->z;
+
+
+			sx = mean_point->x;
+			sy = mean_point->y;
+
+			// Separatrices occur at a point P = A+t(B-A), vP = A+t(vB-vA) where
+			// the cross product of P-S and vP equals zero. Solving this equation
+			// leads to a quadratic equation in t where the coefficients are given by:
+
+			square_term = (ax * avy) - (bx * avy) - (ax * bvy) + (bx * bvy)
+				- (ay * avx) + (by * avx) + (ay * bvx) - (by * bvx);
+
+			linear_term = (-2 * ax * avy) + (bx * avy) + (sx * avy) + (ax * bvy) - (sx * bvy)
+				+ (2 * ay * avx) - (by * avx) - (sy * avx) - (ay * bvx) + (sy * bvx);
+
+			constant_term = (ax * avy) - (sx * avy) - (ay * avx) + (sy * avx);
+
+			discriminant = (linear_term * linear_term) - (4 * square_term * constant_term);
+
+			// filter out problem values
+			if (discriminant >= 0 && (square_term < (-TOLERANCE) || square_term > TOLERANCE))
+			{
+				if (discriminant == 0)
+				{
+					t = (-linear_term) / (2 * square_term);
+				}
+				else
+				{
+					t = ((-linear_term) + sqrt(discriminant)) / (2 * square_term);
+					if (t < 0 || t > 1)
+					{
+						t = ((-linear_term) - sqrt(discriminant)) / (2 * square_term);
+					}
+				}
+
+				if (t >= 0 && t <= 1)
+				{
+					// construct seed point for separatrix
+					seedx = ax + (t * (bx - ax));
+					seedy = ay + (t * (by - ay));
+					seedvx = avx + (t * (bvx - avx));
+					seedvy = avy + (t * (bvy - avy));
+
+					//double check = (seedx - sx) * seedvy - (seedy - sy) * seedvx;
+
+					separatrix_seeds.push_back(new icVector3(seedx, seedy, z));
+				}
+			}
+		}
 	}
 
 public:
@@ -113,6 +182,7 @@ public:
 
 		perim_verts = std::unordered_set<Vertex*>();
 		perim_edges = std::unordered_set<Edge*>();
+		separatrix_seeds = std::vector<icVector3*>();
 		mean_point = nullptr;
 
 		// find min and max values
@@ -129,7 +199,7 @@ public:
 			}
 		}
 	}
-	
+
 	// prepare cluster for analysis
 	void finalize()
 	{
@@ -137,6 +207,154 @@ public:
 		trim();
 		perimeter();
 		separatrices();
+	}
+
+	// return true if a given point lies inside the cell
+	bool contains(double x, double y)
+	{
+		return ((x >= min_x) && (x <= max_x) && (y >= min_y) && (y <= max_y));
+	}
+
+	// returns the vector value at a point inside the cluster cell.
+	icVector3 getVectorVal(double x, double y)
+	{
+		if (contains(x, y))
+		{
+			double sx = mean_point->x;
+			double sy = mean_point->y;
+			double px = x - sx;
+			double py = y - sy;
+			double x_cross, y_cross;
+			if (px > 0 && py > 0)
+			{
+				x_cross = sx + (((max_y - sy) / py) * px);
+				y_cross = sy + (((max_x - sx) / px) * py);
+				if (x_cross < max_x)
+				{
+					y_cross = max_y;
+				}
+				else if (y_cross < max_y)
+				{
+					x_cross = max_x;
+				}
+				else
+				{
+					x_cross = max_x;
+					y_cross = max_y;
+				}
+			}
+			else if (px > 0 && py < 0)
+			{
+				x_cross = sx + (((min_y - sy) / py) * px);
+				y_cross = sy + (((max_x - sx) / px) * py);
+				if (x_cross < max_x)
+				{
+					y_cross = min_y;
+				}
+				else if (y_cross > min_y)
+				{
+					x_cross = max_x;
+				}
+				else
+				{
+					x_cross = max_x;
+					y_cross = min_y;
+				}
+			}
+			else if (px < 0 && py > 0)
+			{
+				x_cross = sx + (((max_y - sy) / py) * px);
+				y_cross = sy + (((min_x - sx) / px) * py);
+				if (x_cross > min_x)
+				{
+					y_cross = max_y;
+				}
+				else if (y_cross < max_y)
+				{
+					x_cross = min_x;
+				}
+				else
+				{
+					x_cross = min_x;
+					y_cross = max_y;
+				}
+			}
+			else if (px < 0 && py < 0)
+			{
+				x_cross = sx + (((min_y - sy) / py) * px);
+				y_cross = sy + (((min_x - sx) / px) * py);
+				if (x_cross > min_x)
+				{
+					y_cross = min_y;
+				}
+				else if (y_cross > min_y)
+				{
+					x_cross = min_x;
+				}
+				else
+				{
+					x_cross = min_x;
+					y_cross = min_y;
+				}
+			}
+			else if (px == 0 && py > 0)
+			{
+				x_cross = sx;
+				y_cross = max_y;
+			}
+			else if (px == 0 && py < 0)
+			{
+				x_cross = sx;
+				y_cross = min_y;
+			}
+			else if (py == 0 && px > 0)
+			{
+				x_cross = max_x;
+				y_cross = sy;
+			}
+			else if (py == 0 && px < 0)
+			{
+				x_cross = min_x;
+				y_cross = sy;
+			}
+			else { return icVector3(0.0,0.0,0.0); }
+
+			double x1, x2, y1, y2, vx1, vx2, vy1, vy2, vx, vy;
+			for (Edge* edge : perim_edges)
+			{
+					x1 = edge->verts[0]->x;
+					x2 = edge->verts[1]->x;
+					y1 = edge->verts[0]->y;
+					y2 = edge->verts[1]->y;
+					vx1 = edge->verts[0]->vx;
+					vy1 = edge->verts[0]->vy;
+					vx2 = edge->verts[1]->vx;
+					vy2 = edge->verts[1]->vy;
+				
+
+				if ((((x1 <= x_cross) && (x_cross <= x2)) || ((x1 >= x_cross) && (x_cross >= x2))) &&
+					(((y1 <= y_cross) && (y_cross <= y2)) || ((y1 >= y_cross) && (y_cross >= y2))))
+				{
+					// interpolate
+					if (x1 == x2)
+					{
+						vx = vx1 + ((y_cross - y1) * (vx2 - vx1)) / (y2 - y1);
+						vy = vy1 + ((y_cross - y1) * (vy2 - vy1)) / (y2 - y1);
+					}
+					else
+					{
+						vx = vx1 + ((x_cross - x1) * (vx2 - vx1)) / (x2 - x1);
+						vy = vy1 + ((x_cross - x1) * (vy2 - vy1)) / (x2 - x1);
+					}
+				}
+			}
+
+			return icVector3(vx, vy, 0);
+		}
+		else
+		{
+			return icVector3(0.0, 0.0, 0.0);
+		}
 	}
 
 	// getters
@@ -152,6 +370,16 @@ public:
 	std::unordered_set<Edge*> getPerim()
 	{
 		return perim_edges;
+	}
+
+	icVector3* getMeanPoint()
+	{
+		return mean_point;
+	}
+
+	std::vector<icVector3*> getSeparatrixSeeds()
+	{
+		return separatrix_seeds;
 	}
 
 	double getMinx() { return min_x; }
@@ -171,6 +399,7 @@ private:
 	
 	Polyhedron* poly;
 	std::vector<icVector3*> singularities;
+	std::vector<icVector3*> merged_singularities;
 	std::vector<Cluster*> clusters;
 	double cluster_threshold;
 
@@ -242,6 +471,7 @@ public:
 			std::vector<icVector3*> rightSings = std::vector<icVector3*>();
 			std::vector<Quad*> rightCell = std::vector<Quad*>();
 
+			// split cluster based on variances
 			if (variance_x > variance_y) {
 				std::vector<icVector3*> clusterSings = c->getSingularities();
 				for (icVector3* s : clusterSings) {
@@ -289,13 +519,13 @@ public:
 			
 			// recursive calls
 			std::vector<Cluster*> join = std::vector<Cluster*>();
-			if (leftSings.size() > 1)
+			if (leftSings.size() > 0)
 			{
 				std::vector<Cluster*> left = separateClusters(new Cluster(leftSings, leftCell));
 				join.reserve(left.size());
 				join.insert(join.end(), left.begin(), left.end());
 			}
-			if (rightSings.size() > 1)
+			if (rightSings.size() > 0)
 			{
 				std::vector<Cluster*> right = separateClusters(new Cluster(rightSings, rightCell));
 				join.reserve(right.size());
@@ -307,12 +537,30 @@ public:
 			std::vector<Cluster*> ret = std::vector<Cluster*>();
 			c->finalize();
 			ret.push_back(c);
+			merged_singularities.push_back(c->getMeanPoint());
 			return ret;
 		}
 	}
 
 	std::vector<Cluster*> getClusters() {
 		return clusters;
+	}
+
+	std::vector<icVector3*> getMergedSingularities()
+	{
+		return merged_singularities;
+	}
+
+	Cluster* getPointCluster(double x, double y)
+	{
+		for (Cluster* cluster : clusters)
+		{
+			if (cluster->contains(x, y))
+			{
+				return cluster;
+			}
+		}
+		return nullptr;
 	}
 
 };
