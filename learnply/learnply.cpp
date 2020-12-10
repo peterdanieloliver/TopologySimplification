@@ -104,7 +104,7 @@ Main program.
 int main(int argc, char* argv[])
 {
 	/*load mesh from ply file*/
-	FILE* this_file = fopen("../turbulent_data/turb_field_08.ply", "r");
+	FILE* this_file = fopen("../turbulent_data/turb_field_05.ply", "r");
 
 	poly = new Polyhedron(this_file);
 	fclose(this_file);
@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
 	// get vector of singularities
 	std::vector<icVector3*> singularities = topo->singularities();
 
-	topo->simplifyTopology(1.0);
+	topo->simplifyTopology(0.5);
 
 	singClusterHandler = topo->cluster_handeler;
 
@@ -966,7 +966,7 @@ void display_polyhedron(Polyhedron* poly)
 				}
 				for (icVector3* sing : topo->simple_singularities)
 				{
-					drawDot(sing->x, sing->y, sing->z, 0.04, 0.64, 0.0, 0.75);
+					drawDot(sing->x, sing->y, sing->z, 0.04, 0.5, 0.0, 1.0);
 				}
 			}
 			else
@@ -1047,29 +1047,56 @@ void display_polyhedron(Polyhedron* poly)
 		// draw topology
 		if (topo_drawn)
 		{
-			for (PolyLine* sep : topo->separatrices)
+			if (simple_topo)
 			{
-				if (sep != nullptr)
+				for (PolyLine* sep : topo->simple_separatrices)
 				{
-					drawPolyline(*sep, 2.0, 0.85, 0.4, 1.0);
+					if (sep != nullptr)
+					{
+						drawPolyline(*sep, 2.0, 0.85, 0.4, 1.0);
+					}
+				}
+				for (icVector3* sing : topo->simple_singularities)
+				{
+					drawDot(sing->x, sing->y, sing->z, 0.04, 0.5, 0.0, 1.0);
 				}
 			}
-			for (icVector3* sing : topo->source_sink_points)
+			else
 			{
-				drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.1, 0.7);
-			}
-			for (icVector3* sing : topo->saddle_points)
-			{
-				drawDot(sing->x, sing->y, sing->z, 0.04, 0.7, 0.1, 0.1);
+				for (PolyLine* sep : topo->separatrices)
+				{
+					if (sep != nullptr)
+					{
+						drawPolyline(*sep, 2.0, 0.85, 0.4, 1.0);
+					}
+				}
+				for (icVector3* sing : topo->source_sink_points)
+				{
+					drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.1, 0.7);
+				}
+				for (icVector3* sing : topo->saddle_points)
+				{
+					drawDot(sing->x, sing->y, sing->z, 0.04, 0.7, 0.1, 0.1);
+				}
 			}
 		}
 
 		// draw streamlines
 		if (lines_drawn)
 		{
-			for (PolyLine* streamline : topo->streamlines)
+			if (simple_topo)
 			{
-				drawPolyline(*streamline, 1.0, 0.9, 0.6, 1.0);
+				for (PolyLine* streamline : topo->simple_streamlines)
+				{
+					drawPolyline(*streamline, 1.0, 0.9, 0.6, 1.0);
+				}
+			}
+			else
+			{
+				for (PolyLine* streamline : topo->streamlines)
+				{
+					drawPolyline(*streamline, 1.0, 0.9, 0.6, 1.0);
+				}
 			}
 		}
 
@@ -1080,9 +1107,15 @@ void display_polyhedron(Polyhedron* poly)
 			for (Cluster* c : clusters) {
 				std::vector<icVector3*> clusterSings = c->getSingularities();
 				for (icVector3* s : clusterSings) {
-					drawDot(s->x, s->y, s->z, 0.05, getColor(i, 0), getColor(i, 1), getColor(i, 2));
+					drawDot(s->x, s->y, s->z, 0.03, getColor(i, 0), getColor(i, 1), getColor(i, 2));
 				}
 				i++;
+				for (Edge* e : c->getPerim())
+				{
+					LineSegment seg = LineSegment(e->verts[0]->x, e->verts[0]->y, e->verts[0]->z,
+						e->verts[1]->x, e->verts[1]->y, e->verts[1]->z);
+					drawLineSegment(seg, 1.0, 0.0, 0.0, 0.0);
+				}
 			}
 		}
 	}
@@ -1094,29 +1127,56 @@ void display_polyhedron(Polyhedron* poly)
 		// draw topology
 		if (topo_drawn)
 		{
-			for (PolyLine* sep : topo->separatrices)
+			if (simple_topo)
 			{
-				if (sep != nullptr)
+				for (PolyLine* sep : topo->simple_separatrices)
 				{
-					drawPolyline(*sep, 2.0, 0.85, 0.4, 1.0);
+					if (sep != nullptr)
+					{
+						drawPolyline(*sep, 2.0, 0.85, 0.4, 1.0);
+					}
+				}
+				for (icVector3* sing : topo->simple_singularities)
+				{
+					drawDot(sing->x, sing->y, sing->z, 0.04, 0.5, 0.0, 1.0);
 				}
 			}
-			for (icVector3* sing : topo->source_sink_points)
+			else
 			{
-				drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.1, 0.7);
-			}
-			for (icVector3* sing : topo->saddle_points)
-			{
-				drawDot(sing->x, sing->y, sing->z, 0.04, 0.7, 0.1, 0.1);
+				for (PolyLine* sep : topo->separatrices)
+				{
+					if (sep != nullptr)
+					{
+						drawPolyline(*sep, 2.0, 0.85, 0.4, 1.0);
+					}
+				}
+				for (icVector3* sing : topo->source_sink_points)
+				{
+					drawDot(sing->x, sing->y, sing->z, 0.04, 0.1, 0.1, 0.7);
+				}
+				for (icVector3* sing : topo->saddle_points)
+				{
+					drawDot(sing->x, sing->y, sing->z, 0.04, 0.7, 0.1, 0.1);
+				}
 			}
 		}
 
 		// draw streamlines
 		if (lines_drawn)
 		{
-			for (PolyLine* streamline : topo->streamlines)
+			if (simple_topo)
 			{
-				drawPolyline(*streamline, 1.0, 0.9, 0.6, 1.0);
+				for (PolyLine* streamline : topo->simple_streamlines)
+				{
+					drawPolyline(*streamline, 1.0, 0.9, 0.6, 1.0);
+				}
+			}
+			else
+			{
+				for (PolyLine* streamline : topo->streamlines)
+				{
+					drawPolyline(*streamline, 1.0, 0.9, 0.6, 1.0);
+				}
 			}
 		}
 
@@ -1127,9 +1187,15 @@ void display_polyhedron(Polyhedron* poly)
 			for (Cluster* c : clusters) {
 				std::vector<icVector3*> clusterSings = c->getSingularities();
 				for (icVector3* s : clusterSings) {
-					drawDot(s->x, s->y, s->z, 0.05, getColor(i, 0), getColor(i, 1), getColor(i, 2));
+					drawDot(s->x, s->y, s->z, 0.03, getColor(i, 0), getColor(i, 1), getColor(i, 2));
 				}
 				i++;
+				for (Edge* e : c->getPerim())
+				{
+					LineSegment seg = LineSegment(e->verts[0]->x, e->verts[0]->y, e->verts[0]->z,
+						e->verts[1]->x, e->verts[1]->y, e->verts[1]->z);
+					drawLineSegment(seg, 1.0, 0.0, 0.0, 0.0);
+				}
 			}
 		}
 	}
